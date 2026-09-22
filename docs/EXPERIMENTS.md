@@ -123,10 +123,21 @@ the comparison has a gradient rather than two points).
 
 ## What to record
 
-Push `results/*.json` and note, for each run: the dataset repo id and revision,
-the LeRobot commit, the transformers version, and whether you changed the
-prompt. If you touch the prompt between runs, the runs are not comparable and
-the calibration numbers mean nothing across them.
+Mostly automatic now. Every results file carries a `provenance` block (library
+versions, GPU, repo commit, whether the working tree was dirty) and a
+`manifest_fingerprint` hashing the questions, options, labels and frames.
+
+**Two runs with different fingerprints are not comparable**, whatever the
+filenames say. That is the failure mode to watch: tweak the prompt, rerun, then
+compare calibration numbers as though nothing changed. Check the fingerprints
+match before you put two runs in the same table.
+
+`results/*.json` is tracked by git, so commit and push them. The frames under
+`data/` are not; rebuild those from the manifest script.
+
+Still worth noting by hand: the dataset repo id and revision you passed to
+`make_manifest.py`, and anything you changed in the code mid-session that the
+commit hash would not reflect.
 
 ## What E0 and E1 do not tell you
 

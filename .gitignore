@@ -2,7 +2,13 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
-results/
-data/
-outputs/
 .venv/
+outputs/
+
+# manifests carry extracted frames; rebuild them, don't commit them
+data/
+
+# results are the point of the repo: keep the JSON, drop everything else
+results/*
+!results/
+!results/*.json

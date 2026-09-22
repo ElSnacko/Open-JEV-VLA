@@ -135,3 +135,80 @@ def load_manifest(path) -> list[dict]:
     if len(n_opts) != 1:
         raise SystemExit(f"all items must share option count, saw {sorted(n_opts)}")
     return items
+
+
+def run_provenance(extra: dict | None = None) -> dict:
+    """Capture what would otherwise have to be written down by hand.
+
+    Runs are only comparable if the model code, the prompt and the data are the
+    same. Recording that manually is the step that gets skipped at 1am, and a
+    results file with no provenance cannot be compared to anything later.
+    Every failure here is swallowed: provenance is never worth losing a run.
+    """
+    import platform
+    import subprocess
+    import sys
+    import time
+
+    prov: dict = {
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+    }
+
+    for name in ("torch", "transformers", "lerobot", "numpy"):
+        try:
+            prov[f"{name}_version"] = __import__(name).__version__
+        except Exception:  # noqa: BLE001 - absent or version-less is fine
+            prov[f"{name}_version"] = None
+
+    try:
+        import torch
+
+        prov["cuda"] = torch.cuda.is_available()
+        prov["gpu"] = torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
+    except Exception:  # noqa: BLE001
+        prov["cuda"], prov["gpu"] = None, None
+
+    try:
+        prov["repo_commit"] = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=str(__import__("pathlib").Path(__file__).resolve().parent),
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
+        prov["repo_dirty"] = bool(
+            subprocess.check_output(
+                ["git", "status", "--porcelain"],
+                cwd=str(__import__("pathlib").Path(__file__).resolve().parent),
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        )
+    except Exception:  # noqa: BLE001
+        prov["repo_commit"], prov["repo_dirty"] = None, None
+
+    if extra:
+        prov.update(extra)
+    return prov
+
+
+def manifest_fingerprint(items: list[dict]) -> str:
+    """Hash the questions, options and labels of a manifest.
+
+    Two runs with different fingerprints are not comparable, whatever the
+    filenames say. This catches the failure mode EXPERIMENTS.md warns about:
+    tweaking the prompt between runs and then comparing the calibration
+    numbers as though nothing changed.
+    """
+    import hashlib
+    import json
+
+    payload = [
+        {"q": r["question"], "o": r["options"], "l": r["label"], "i": r["image"]}
+        for r in items
+    ]
+    blob = json.dumps(payload, sort_keys=True).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]

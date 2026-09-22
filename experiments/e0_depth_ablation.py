@@ -67,6 +67,8 @@ from jev.evaluation import (  # noqa: E402
     collect_logits,
     evaluate,
     load_manifest,
+    manifest_fingerprint,
+    run_provenance,
     verdict,
 )
 from jev.readout import OptionReadout  # noqa: E402
@@ -128,6 +130,10 @@ def main() -> int:
                 "model_id": args.model_id,
                 "manifest": str(args.manifest),
                 "n_items": len(items),
+                "manifest_fingerprint": manifest_fingerprint(items),
+                "provenance": run_provenance(
+                    {"model_id": args.model_id, "device": args.device, "dtype": args.dtype}
+                ),
                 "smolvla_depth": args.smolvla_depth,
                 "depths": {str(d): r for d, r in results.items()},
                 "headline_verdict": target["verdict"] if target else "NOT_RUN",

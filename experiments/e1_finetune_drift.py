@@ -79,6 +79,8 @@ from jev.evaluation import (  # noqa: E402
     collect_logits,
     evaluate,
     load_manifest,
+    manifest_fingerprint,
+    run_provenance,
     symmetric_kl,
     verdict,
 )
@@ -202,6 +204,10 @@ def main() -> int:
             {
                 "manifest": str(args.manifest),
                 "n_items": len(items),
+                "manifest_fingerprint": manifest_fingerprint(items),
+                "provenance": run_provenance(
+                    {"variants": args.variants, "device": args.device, "dtype": args.dtype}
+                ),
                 "depth": args.depth,
                 "variants": results,
             },
