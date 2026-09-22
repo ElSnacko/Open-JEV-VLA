@@ -25,8 +25,19 @@ full-depth residual stream. Whether they still decode anything useful from a
 half-depth one is unmeasured, and it decides whether the readout can live on
 the policy at all.
 
-See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the full prior-art check,
-including a dozen papers and two active GitHub repos on adjacent ground.
+SmolVLA is also the sharpest place to ask it. It is a flow-matching policy:
+its action path runs `action_out_proj`, a plain `nn.Linear` emitting a velocity
+field, and integrates it. There is **no softmax anywhere in its control path**,
+so there is no probability to calibrate. Every published uncertainty method for
+this class of policy has to manufacture one, by training a head, sampling K
+times, or perturbing activations. The frozen `lm_head` is the only pretrained
+normalised distribution already sitting in the checkpoint, and it costs one
+forward pass and no training.
+
+Read in order:
+[`docs/CONTEXT.md`](docs/CONTEXT.md) (the architecture argument and every
+caveat), [`docs/VERIFICATION.md`](docs/VERIFICATION.md) (prior-art check),
+[`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) (what to run).
 
 ## The experiments
 
