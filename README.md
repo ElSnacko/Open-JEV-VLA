@@ -2,9 +2,13 @@
 
 Calibrated option-token readout and gating for vision-language-action policies.
 
-**Status: pre-experiment.** The calibration and gating math is implemented and
-tested. The readout is implemented against the real LeRobot/transformers APIs
-but has not been run against weights — see *Why nothing has run yet* below.
+**Status: E0 and E1 ran, both KILL.** The readout does not survive SmolVLA's
+depth truncation, on two tasks, six depths, and three checkpoints (base,
+`smolvla_base`, `smolvla_libero`). See
+[`docs/RESULTS.md`](docs/RESULTS.md) for the numbers and
+[`docs/CONTEXT.md`](docs/CONTEXT.md) section 6 for what that means next. The
+*Why nothing had run yet* section below is now history, kept for how the
+predictions read before any weights were touched.
 
 ## The question
 
@@ -35,33 +39,33 @@ normalised distribution already sitting in the checkpoint, and it costs one
 forward pass and no training.
 
 Read in order:
+[`docs/RESULTS.md`](docs/RESULTS.md) (what actually happened when this ran),
 [`docs/CONTEXT.md`](docs/CONTEXT.md) (the architecture argument and every
 caveat), [`docs/VERIFICATION.md`](docs/VERIFICATION.md) (prior-art check),
-[`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) (what to run).
+[`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) (what was run, written before any
+of it had been -- read it for the pre-registered decision rules, not as a
+prediction of the outcome).
 
 ## The experiments
 
-| | what it settles | cost |
+| | what it settles | result |
 |---|---|---|
-| **E0** depth ablation | can a 16-layer-truncated SmolVLM2 + original head answer A/B/C above chance, and does recalibration make it gate-worthy? | one 500M model, CPU-feasible, hours |
-| **E1** finetuning drift | does action finetuning move the readout, beyond what truncation already costs? | + the SmolVLA checkpoint, still no robot |
-| **E2** gating | does the calibrated gate actually catch failures in closed loop? | rollouts, GPU |
+| **E0** depth ablation | can a 16-layer-truncated SmolVLM2 + original head answer A/B/C above chance, and does recalibration make it gate-worthy? | **KILL** — mass ≈0 at every depth ≤24, on both tasks |
+| **E1** finetuning drift | does action finetuning move the readout, beyond what truncation already costs? | **KILL confirmed on the real checkpoints** — `smolvla_base`/`smolvla_libero` reproduce E0's format failure, 99%/86% token-agreement with the truncated base |
+| **E2** gating | does the calibrated gate actually catch failures in closed loop? | not run — no working readout at SmolVLA's depth to gate with |
 
-E0 is the kill test and it is deliberately the cheapest thing in the
-repository. Its decision rule is pre-registered in the script docstring: fix
-the thresholds before you look at the numbers.
+E0 was the kill test and it killed. Its decision rule was pre-registered in
+the script docstring, fixed before any numbers existed:
 
 ```bash
 python experiments/e0_depth_ablation.py \
-    --manifest data/mcqa.jsonl \
+    --manifest data/gripper.jsonl \
     --depths 8 12 16 20 24 32 \
-    --out results/e0.json
+    --device cuda --out results/e0_gripper.json
 ```
 
-E0 does not need robot frames to be informative. If the truncated head cannot
-answer A/B/C on *any* labelled image-MCQA set, it will not answer them on
-gripper frames either, and that is a one-afternoon answer. Robot frames sharpen
-the result; they are not needed to kill it.
+Full numbers, the leading-space bug found and fixed along the way, and what
+would need to change to revisit this: [`docs/RESULTS.md`](docs/RESULTS.md).
 
 ## Layout
 
@@ -71,7 +75,7 @@ jev/calibration.py   temperature + vector scaling, split conformal, ECE/Brier/
 jev/readout.py       single-pass option-token readout; layer truncation that
                      mirrors LeRobot's exactly; SmolVLA checkpoint loader.
 experiments/         E0 and the ones that follow it.
-tests/               25 tests over the calibration math, incl. empirical
+tests/               33 tests over the calibration math, incl. empirical
                      verification of the conformal coverage guarantee.
 ```
 
@@ -80,8 +84,9 @@ carries the statistical claims runs and is tested without torch, weights, or a
 GPU.
 
 ```bash
-pip install -e ".[dev]" && pytest -q      # 25 passed
+pip install -e ".[dev]" && pytest -q      # 33 passed
 pip install -e ".[readout]"               # + torch, transformers, pillow
+pip install -e ".[smolvla]"               # + lerobot, for E1 and the manifest builder
 ```
 
 ## Manifest format
@@ -95,13 +100,16 @@ One JSON object per line, image paths relative to the manifest:
  "label": 0}
 ```
 
-## Why nothing has run yet
+## Why nothing had run, for a while
 
 This was developed in a container with no GPU and with `huggingface.co` and
-`arxiv.org` blocked at the egress proxy. No model weights could be downloaded,
-so the readout path is written against the APIs but unexecuted; treat its first
-run as debugging, not as a result. The calibration layer has no such excuse and
-is tested.
+`arxiv.org` blocked at the egress proxy, so the readout path was written
+against the real APIs but unexecuted, and every number in `docs/CONTEXT.md`
+and `docs/EXPERIMENTS.md` was a prediction rather than a result. That changed
+2026-09-22 on a machine with both a GPU and open egress: see
+[`docs/RESULTS.md`](docs/RESULTS.md) for what actually happened. The
+calibration layer never had this excuse -- it was NumPy-only and tested from
+the start.
 
 ## Prior art you should read before adding to this
 
