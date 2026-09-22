@@ -90,6 +90,28 @@ def main() -> int:
     markers = tuple("ABCDEFGH"[: len(items[0]["options"])])
     print(f"E0: {len(items)} items, {len(markers)} options, markers={markers}")
 
+    # Determine leading_space once, at full depth, and apply it to every depth in
+    # the sweep. Autodetecting per-iteration-but-only-on-the-last-depth (the
+    # previous behaviour) scored every other depth with the wrong tokenization,
+    # which silently misreports them as FORMAT_FAILURE instead of measuring
+    # truncation. The tokenization convention should not depend on depth; only
+    # whether the resulting answer is any good should.
+    from PIL import Image
+
+    probe = OptionReadout.from_pretrained(
+        args.model_id,
+        truncate_layers=max(args.depths),
+        device=args.device,
+        dtype=args.dtype,
+        markers=markers,
+    )
+    with Image.open(items[0]["image_path"]) as probe_im:
+        leading_space, probe_mass = probe.autodetect_leading_space(
+            probe_im.convert("RGB"), items[0]["question"], items[0]["options"]
+        )
+    print(f"  [leading_space={leading_space}, probe_mass={probe_mass:.3f}]")
+    del probe
+
     results = {}
     for depth in sorted(set(args.depths)):
         print(f"  depth {depth:>2} ... ", end="", flush=True)
@@ -99,18 +121,8 @@ def main() -> int:
             device=args.device,
             dtype=args.dtype,
             markers=markers,
+            leading_space=leading_space,
         )
-        if depth == max(args.depths):
-            from PIL import Image
-
-            with Image.open(items[0]["image_path"]) as probe_im:
-                ls, probe_mass = readout.autodetect_leading_space(
-                    probe_im.convert("RGB"),
-                    items[0]["question"],
-                    items[0]["options"],
-                )
-            print(f"[leading_space={ls}, mass={probe_mass:.3f}] ", end="", flush=True)
-
         logits, labels, mass = collect_logits(readout, items)
         row = evaluate(logits, labels, seed=args.seed)
         row["in_option_mass"] = mass

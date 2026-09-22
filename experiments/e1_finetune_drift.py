@@ -98,14 +98,23 @@ AUROC_DROP_TOLERANCE = 0.05
 KL_MOVED = 0.5
 
 
-def load_variant(name: str, depth: int, device: str, dtype: str, markers) -> OptionReadout:
+def load_variant(
+    name: str, depth: int, device: str, dtype: str, markers, leading_space: bool
+) -> OptionReadout:
     spec = VARIANTS[name]
     if spec["kind"] == "vlm":
         return OptionReadout.from_pretrained(
-            spec["id"], truncate_layers=depth, device=device, dtype=dtype, markers=markers
+            spec["id"],
+            truncate_layers=depth,
+            device=device,
+            dtype=dtype,
+            markers=markers,
+            leading_space=leading_space,
         )
     # SmolVLA checkpoints arrive already truncated by their own config
-    return OptionReadout.from_smolvla(spec["id"], device=device, markers=markers)
+    return OptionReadout.from_smolvla(
+        spec["id"], device=device, markers=markers, leading_space=leading_space
+    )
 
 
 def classify(row: dict, base_row: dict, mean_kl: float) -> str:
@@ -144,12 +153,26 @@ def main() -> int:
     markers = tuple("ABCDEFGH"[: len(items[0]["options"])])
     print(f"E1: {len(items)} items, {len(markers)} options, depth {args.depth}")
 
+    # Determine leading_space once, on the base variant, and hold it fixed across
+    # every variant. Letting each variant pick its own tokenization convention
+    # would make the cross-variant comparison meaningless -- a difference in
+    # in_option_mass could then come from the markers, not from the checkpoint.
+    from PIL import Image
+
+    probe = load_variant("base", args.depth, args.device, args.dtype, markers, False)
+    with Image.open(items[0]["image_path"]) as probe_im:
+        leading_space, probe_mass = probe.autodetect_leading_space(
+            probe_im.convert("RGB"), items[0]["question"], items[0]["options"]
+        )
+    print(f"  [leading_space={leading_space}, probe_mass={probe_mass:.3f}]")
+    del probe
+
     probs_by_variant: dict[str, np.ndarray] = {}
     results: dict[str, dict] = {}
 
     for name in args.variants:
         print(f"  {name:<8} ... ", end="", flush=True)
-        readout = load_variant(name, args.depth, args.device, args.dtype, markers)
+        readout = load_variant(name, args.depth, args.device, args.dtype, markers, leading_space)
         n_layers = None
         try:
             from jev.readout import n_text_layers
