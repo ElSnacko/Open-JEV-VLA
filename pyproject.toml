@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-jev-vla"
+version = "0.1.0"
+description = "Calibrated option-token readout and gating for vision-language-action policies"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+readout = ["torch>=2.2", "transformers>=4.50", "pillow>=10.0", "accelerate>=0.30"]
+smolvla = ["lerobot[smolvla]>=0.6"]
+dev = ["pytest>=7.4", "scipy>=1.11"]
+
+[tool.setuptools]
+packages = ["jev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
