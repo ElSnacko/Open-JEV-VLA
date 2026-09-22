@@ -128,6 +128,15 @@ the LeRobot commit, the transformers version, and whether you changed the
 prompt. If you touch the prompt between runs, the runs are not comparable and
 the calibration numbers mean nothing across them.
 
+## What E0 and E1 do not tell you
+
+The probability the readout recovers is P(next word is "A"), not P(the action
+is safe). The action expert and the language head share a trunk but were
+trained for different things, and nothing forces them to agree. E0 shows the
+mechanism functions; E1 shows action training did not break it; neither shows
+the answers track action quality. That is E2. See `CONTEXT.md` section 2b
+before writing up an encouraging E0 as more than a prerequisite.
+
 ## Why E2 is not in this brief
 
 E2 (does the calibrated gate actually catch failures in closed loop) needs

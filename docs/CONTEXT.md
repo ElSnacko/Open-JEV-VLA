@@ -71,6 +71,59 @@ extra forward pass and no training whatsoever. **That is the whole idea.** The
 only question is whether it still works after the stack it reads from has been
 cut in half, which is E0.
 
+## 2b. The probability you get back is about words, not actions
+
+The readout does restore a probability: `lm_head` projects the final hidden
+state to vocabulary size (~49k for SmolLM2) and softmax normalises it, so you
+get a genuine distribution and can read P("A") against P("B"). That much is
+real, and it is the only normalised distribution anywhere in a SmolVLA
+checkpoint.
+
+But be exact about what it is a probability *of*. It is
+**P(the next word is "A")**, given a question you asked in English. It is not
+P(the action is safe), and nothing in the architecture makes it one.
+
+Two heads read the same body:
+
+```
+                      ┌─ action expert → action_out_proj → velocity → ACTION
+  image + instruction │                                    (no probability)
+     → 16 VLM layers ─┤
+                      └─ norm → lm_head → softmax → P(word)
+                                                    (probability, about text)
+```
+
+They share a trunk. They were trained for different things: the action path was
+optimised to imitate demonstrations, the language head was optimised on web
+text and never updated afterwards. Nothing forces their judgements to agree.
+The policy can be about to emit a bad action while the language head cheerfully
+answers "A, on track", because the language head was never trained to know what
+the action expert is doing.
+
+So the project rests on an empirical bet, and it should be stated as one: **that
+the trunk's representation of "is this going well" is shared between the two
+heads.** That is plausible, since both read the same hidden states and the
+progress information has to live somewhere, and the probe literature
+(2608.13474, 2502.04558) shows task progress is linearly decodable from VLA
+internals. But it is a bet, not a derivation.
+
+### What this means for E0 and E1
+
+They are gates, not proof. Specifically:
+
+| | establishes | does not establish |
+|---|---|---|
+| E0 | the truncated stack + frozen head can answer image questions at all | that the answers relate to action quality |
+| E1 | action finetuning did not destroy that ability | same |
+| E2 | the readout predicts whether the rollout actually failed | — |
+
+Fail E0 or E1 and stop, cheaply. Pass both and you have shown only that the
+mechanism *functions*, not that it *informs*. The claim in the title only gets
+tested in E2, on real rollouts with real failure labels.
+
+Do not let an encouraging E0 get written up as though it settled the question.
+It answers a prerequisite.
+
 ## 3. What SmolVLA does to the VLM, precisely
 
 Two separate operations, easy to conflate, and only one of them is a problem.
