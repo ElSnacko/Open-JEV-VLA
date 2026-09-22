@@ -58,115 +58,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import pathlib
 import sys
 
-import numpy as np
-
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from jev.calibration import (  # noqa: E402
-    auroc,
-    brier_score,
-    calibrate_gate,
-    expected_calibration_error,
-    nll,
-    softmax,
+from jev.evaluation import (  # noqa: E402
+    collect_logits,
+    evaluate,
+    load_manifest,
+    verdict,
 )
 from jev.readout import OptionReadout  # noqa: E402
-
-CHANCE_MARGIN_SE = 2.0
-AUROC_KILL = 0.55
-AUROC_PASS = 0.65
-FORMAT_FLOOR = 0.05
-
-
-def load_manifest(path: pathlib.Path) -> list[dict]:
-    root = path.parent
-    items = []
-    with path.open() as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            rec["image_path"] = str((root / rec["image"]).resolve())
-            items.append(rec)
-    if not items:
-        raise SystemExit(f"no items in {path}")
-    n_opts = {len(r["options"]) for r in items}
-    if len(n_opts) != 1:
-        raise SystemExit(f"all items must share option count, saw {sorted(n_opts)}")
-    return items
-
-
-def collect_logits(readout: OptionReadout, items: list[dict]) -> tuple[np.ndarray, np.ndarray, float]:
-    from PIL import Image
-
-    rows, masses = [], []
-    for rec in items:
-        with Image.open(rec["image_path"]) as im:
-            res = readout.score(im.convert("RGB"), rec["question"], rec["options"])
-        rows.append(res.logits)
-        masses.append(res.meta["in_option_mass"])
-    labels = np.array([r["label"] for r in items])
-    return np.stack(rows), labels, float(np.mean(masses))
-
-
-def evaluate(logits: np.ndarray, labels: np.ndarray, seed: int = 0) -> dict:
-    """Split-half: fit recalibration on one half, report on the other."""
-    n, k = logits.shape
-    rng = np.random.default_rng(seed)
-    perm = rng.permutation(n)
-    cut = n // 2
-    cal, test = perm[:cut], perm[cut:]
-
-    raw = softmax(logits[test])
-    correct_raw = raw.argmax(1) == labels[test]
-
-    gate = calibrate_gate(logits[cal], labels[cal], alpha=0.1)
-    recal = gate.probabilities(logits[test])
-    correct_recal = recal.argmax(1) == labels[test]
-
-    acc = float(correct_raw.mean())
-    se = math.sqrt(max(acc * (1 - acc), 1e-12) / max(len(test), 1))
-
-    act, set_size = gate.decide(logits[test])
-
-    return {
-        "n_total": int(n),
-        "n_test": int(len(test)),
-        "k": int(k),
-        "chance": 1.0 / k,
-        "accuracy": acc,
-        "accuracy_se": se,
-        "accuracy_recal": float(correct_recal.mean()),
-        "ece_raw": expected_calibration_error(raw, labels[test]),
-        "ece_recal": expected_calibration_error(recal, labels[test]),
-        "brier_raw": brier_score(raw, labels[test]),
-        "brier_recal": brier_score(recal, labels[test]),
-        "nll_raw": nll(raw, labels[test]),
-        "nll_recal": nll(recal, labels[test]),
-        # does confidence rank correctness? this is the gating-relevant number
-        "auroc_raw": auroc(raw.max(1), correct_raw),
-        "auroc_recal": auroc(recal.max(1), correct_recal),
-        "temperature": gate.temperature,
-        "conformal_qhat": gate.qhat,
-        "mean_set_size": float(set_size.mean()),
-        "act_rate": float(act.mean()),
-    }
-
-
-def verdict(row: dict, in_option_mass: float) -> str:
-    if in_option_mass < FORMAT_FLOOR:
-        return "FORMAT_FAILURE"
-    above_chance = row["accuracy"] > row["chance"] + CHANCE_MARGIN_SE * row["accuracy_se"]
-    if not above_chance or row["auroc_recal"] <= AUROC_KILL:
-        return "KILL"
-    if row["auroc_recal"] >= AUROC_PASS:
-        return "SURVIVES"
-    return "INCONCLUSIVE"
 
 
 def main() -> int:
