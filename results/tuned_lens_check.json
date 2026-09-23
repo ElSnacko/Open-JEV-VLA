@@ -1,0 +1,102 @@
+{
+  "manifests": [
+    "data/gripper.jsonl",
+    "data/phase.jsonl"
+  ],
+  "n_items_total": 644,
+  "depth_tested": 16,
+  "ridge_alpha": 10.0,
+  "ridge_train_r2": 0.9877555966377258,
+  "provenance": {
+    "timestamp_utc": "2026-09-23T15:53:51Z",
+    "python": "3.12.14",
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.11.0+cu130",
+    "transformers_version": "5.5.4",
+    "lerobot_version": "0.6.1",
+    "numpy_version": "2.2.6",
+    "cuda": true,
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "repo_commit": "03f9776",
+    "repo_dirty": true,
+    "model_id": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+    "device": "cuda"
+  },
+  "per_manifest": {
+    "data/gripper.jsonl": {
+      "n_test": 151,
+      "raw_depth16": {
+        "mean_mass": 3.2842532946691927e-13,
+        "median_mass": 3.2165779371637337e-13,
+        "frac_above_0.05": 0.0,
+        "top_token_counts": {
+          "oriously": 151
+        }
+      },
+      "diagonal_correction": {
+        "mean_mass": 0.8743394017219543,
+        "median_mass": 0.8912965059280396,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 151
+        }
+      },
+      "ridge_tuned_lens": {
+        "mean_mass": 0.9666377902030945,
+        "median_mass": 0.9690244197845459,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " A": 151
+        }
+      },
+      "true_depth32": {
+        "mean_mass": 0.9654595851898193,
+        "median_mass": 0.9688454866409302,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " A": 151
+        }
+      },
+      "diagonal_gain_over_raw": 0.8743394017216259,
+      "tuned_lens_gain_over_diagonal": 0.09229838848114014
+    },
+    "data/phase.jsonl": {
+      "n_test": 171,
+      "raw_depth16": {
+        "mean_mass": 5.531662367747048e-12,
+        "median_mass": 5.214417005822147e-12,
+        "frac_above_0.05": 0.0,
+        "top_token_counts": {
+          "oriously": 171
+        }
+      },
+      "diagonal_correction": {
+        "mean_mass": 0.9986063838005066,
+        "median_mass": 0.9987261295318604,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 171
+        }
+      },
+      "ridge_tuned_lens": {
+        "mean_mass": 0.9982178211212158,
+        "median_mass": 0.9982527494430542,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 171
+        }
+      },
+      "true_depth32": {
+        "mean_mass": 0.9982399940490723,
+        "median_mass": 0.9982599020004272,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 171
+        }
+      },
+      "diagonal_gain_over_raw": 0.9986063837949749,
+      "tuned_lens_gain_over_diagonal": -0.0003885626792907715
+    }
+  },
+  "verdict": "ROTATIONAL_COMPONENT_FOUND"
+}

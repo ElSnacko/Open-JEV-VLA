@@ -246,6 +246,45 @@ explanation (1). The result wasn't negative, so that caveat matters less
 than it would have, but a real tuned lens would still be the sharper version
 of this check if the exact mechanism needs pinning down further.
 
+## Follow-up: is there a rotational component beyond simple rescaling?
+
+The diagonal correction above only rescales each of the 960 dimensions
+independently -- it can't mix dimensions together. If depth-16 and depth-32
+genuinely encoded information in a *different arrangement* of axes (not just
+different per-axis scale), a diagonal-only fix should fail where a full
+linear map succeeds, since reorganizing information requires mixing
+dimensions. `experiments/tuned_lens_check.py` tests this directly: a
+ridge-regularized full affine map (`y = Wx + b`, 960x960, CV-selected alpha,
+fit and evaluated with a proper train/held-out-test split so the ~922k
+parameters can't just memorize the ~300 training items) compared against the
+diagonal correction, both scored on the same held-out items.
+
+| task | diagonal mass | diagonal top token | ridge tuned lens mass | ridge top token | true depth-32 top token |
+|---|---|---|---|---|---|
+| gripper (151 test) | 0.874 | `' B'` (151/151) | **0.967** | **`' A'` (151/151)** | `' A'` (151/151) |
+| phase (171 test) | 0.999 | `' B'` (171/171) | 0.998 | `' B'` (171/171) | `' B'` (171/171) |
+
+Full object in `results/tuned_lens_check.json` (ridge alpha selected by CV:
+10; train R^2 against depth-32 targets: 0.988).
+
+**Task-dependent, and genuinely informative either way.** On `phase`,
+diagonal already explains it -- the extra rotational freedom buys nothing
+(-0.0004, noise). On `gripper`, the full map does something the diagonal
+correction structurally cannot: it doesn't just recover more mass, it flips
+which constant answer comes out, from `' B'` (matching nothing) to `' A'`
+(exactly matching true depth-32, on all 151 held-out items). A per-axis
+rescaling cannot flip which direction wins; only mixing dimensions can. That
+is real, if modest and task-dependent, evidence for a rotational component
+on top of the (still dominant) diagonal effect.
+
+**This changes the mechanistic picture, not the content-blindness finding.**
+The rotation-corrected gripper output is exactly as constant across all 151
+different images as before -- it now constant-matches the *correct* (and
+equally content-blind) depth-32 answer instead of a different wrong one.
+Whatever the geometric relationship between depth-16 and depth-32 turns out
+to be, content-blindness lives downstream of it and is untouched by either
+correction.
+
 ## What would change this conclusion
 
 This used one 500M backbone (`HuggingFaceTB/SmolVLM2-500M-Video-Instruct`,
