@@ -120,24 +120,86 @@ avoid, or (b) a trained probe on layer-16 hidden states, which is SAFE /
 VLAConf territory and a different, already-published contribution -- name it
 as that if pursued.
 
+## Follow-up: does layer 16 actually carry the signal? (linear probe)
+
+The KILL verdict above is compatible with two different explanations: either
+layer 16 has no usable signal at all, or it has the signal and `lm_head`
+specifically can't read it. Only the second is consistent with SmolVLA
+working as a policy, but that argument was indirect -- inferred from the arm
+functioning, not measured. `experiments/probe_layer16.py` measures it
+directly: a regularized linear probe on the exact hidden vector `lm_head` is
+fed (captured with a forward hook, not recomputed independently, so this is
+provably the same vector the KILL verdict was measured on), scored against a
+permutation-null baseline (same pipeline, shuffled labels) since 960 features
+on ~150 training items is an easy regime to fool yourself in without one.
+
+This is explicitly not a revival of the zero-training premise -- see the
+script docstring and `docs/CONTEXT.md` section 6 for why a trained probe is a
+different category of contribution (SAFE/VLAConf territory), named as such
+rather than smuggled in as a JEV readout.
+
+| task | depth | probe acc | chance | null acc (shuffled labels) | z vs null | auroc |
+|---|---|---|---|---|---|---|
+| gripper | 16 | 0.833 | 0.500 | 0.483 ± 0.044 | 8.0 | 0.904 |
+| gripper | 32 | 0.880 | 0.500 | 0.488 ± 0.043 | 9.1 | 0.913 |
+| phase | 16 | 0.860 | 0.333 | 0.418 ± 0.029 | 15.0 | 0.949 |
+| phase | 32 | 0.878 | 0.333 | 0.410 ± 0.030 | 15.4 | 0.957 |
+
+(Full objects in `results/probe_gripper.json`, `results/probe_phase.json`.
+`LogisticRegressionCV` picked small `C` -- heavy L2 regularization -- on
+every run, which argues against the high accuracy being memorization: a
+model forced toward simple decision boundaries still separates the classes
+cleanly.)
+
+**This resolves the ambiguity: it's the first explanation's opposite.** Layer
+16 carries the signal, decodably, at 8-15 standard deviations above what the
+identical pipeline achieves on shuffled labels. And depth barely matters to
+the probe -- 0.833 vs 0.880 on gripper, 0.860 vs 0.878 on phase -- a few
+points, not the cliff `lm_head` shows between depth 24 and 32. Put the two
+results side by side and the finding sharpens considerably: **truncation
+costs almost nothing to the information in the residual stream, and almost
+everything to the frozen decoder's ability to read it.** The KILL isn't
+"SmolVLA's backbone stops encoding task state at depth 16." It's "the one
+specific decoder this project tried to reuse for free was never fit to read
+that depth, and nothing else about the representation is broken."
+
+That reframes the project's two live next steps from `docs/CONTEXT.md`
+section 6: option (a), a parallel full-depth VLM, is now a harder sell -- the
+information is sitting in the policy's own truncated stack, not missing from
+it, which is exactly the situation a parallel model would fail to exploit.
+Option (b), a trained probe, has empirical footing behind it for the first
+time in this repo: this experiment is close to a proof of concept for it,
+not just a plausibility argument.
+
 ## What would change this conclusion
 
 This used one 500M backbone (`HuggingFaceTB/SmolVLM2-500M-Video-Instruct`,
 SmolVLA's actual base), one dataset (`lerobot/svla_so101_pickplace`), and two
-generated-label tasks. Worth checking before treating this as final:
+generated-label tasks. Worth checking before treating any of this as final:
 
-- Whether the mass cliff is specific to this base model's `lm_head`/norm
-  pairing, or a general property of decoder-only VLM logit lenses at ~50%
-  depth (the literature says degraded-but-present at intermediate depth, not
-  a hard zero -- `docs/CONTEXT.md` section 4 flags this as worth spot
-  checking against the SmolVLA and INSIGHT papers directly).
+- Whether the `lm_head` mass cliff is specific to this base model's
+  `lm_head`/norm pairing, or a general property of decoder-only VLM logit
+  lenses at ~50% depth (the literature says degraded-but-present at
+  intermediate depth, not a hard zero -- `docs/CONTEXT.md` section 4 flags
+  this as worth spot checking against the SmolVLA and INSIGHT papers
+  directly).
 - Whether a larger SmolVLM2 checkpoint (2.2B) shows the same cliff shape at
   the equivalent relative depth, which would separate "half-depth kills
   logit-lens readouts on this model family" from "500M is just too small for
   this to work at all."
-- Whether other SO101/SO100 datasets replicate both the format cliff and the
-  content-blindness, or whether either is somehow specific to this dataset's
-  visual distribution.
+- Whether other SO101/SO100 datasets replicate the `lm_head` format cliff
+  and the probe's success, or whether either is somehow specific to this
+  dataset's visual distribution.
+- Whether the probe result holds on the real `smolvla_base`/`smolvla_libero`
+  checkpoints' own hidden states (this ran on the base-truncated VLM only,
+  matching E0's "base" condition; E1 showed the real checkpoints track the
+  base model closely on the `lm_head` side, but that hasn't been checked on
+  the probe side).
+- Whether the probe still separates classes on genuinely held-out episodes
+  (train/test items here come from a 50/50 split of the same 344-frame pool,
+  which can share an episode across the split; an episode-level split would
+  rule out the probe keying on incidental per-episode cues like lighting or
+  clutter rather than gripper/phase state itself).
 
 None of these were run here; they are the next cheapest things if anyone
 wants to push past this result rather than accept it.

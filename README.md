@@ -2,9 +2,13 @@
 
 Calibrated option-token readout and gating for vision-language-action policies.
 
-**Status: E0 and E1 ran, both KILL.** The readout does not survive SmolVLA's
-depth truncation, on two tasks, six depths, and three checkpoints (base,
-`smolvla_base`, `smolvla_libero`). See
+**Status: E0 and E1 ran, both KILL — but a follow-up probe shows the readout
+died for a specific, narrow reason, not because the information is gone.**
+The frozen `lm_head` cannot decode a truncated residual stream (KILL, on two
+tasks, six depths, and three checkpoints), but a trained linear probe on the
+same layer-16 hidden states gets 83-88% accuracy, 8-15 standard deviations
+above a permutation-null baseline. Truncation costs the frozen decoder almost
+everything and the information itself almost nothing. See
 [`docs/RESULTS.md`](docs/RESULTS.md) for the numbers and
 [`docs/CONTEXT.md`](docs/CONTEXT.md) section 6 for what that means next. The
 *Why nothing had run yet* section below is now history, kept for how the
