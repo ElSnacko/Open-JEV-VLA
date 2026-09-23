@@ -1,0 +1,82 @@
+{
+  "manifests": [
+    "data/gripper.jsonl",
+    "data/phase.jsonl"
+  ],
+  "n_items_total": 644,
+  "depth_tested": 16,
+  "provenance": {
+    "timestamp_utc": "2026-09-23T15:36:14Z",
+    "python": "3.12.14",
+    "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.11.0+cu130",
+    "transformers_version": "5.5.4",
+    "lerobot_version": "0.6.1",
+    "numpy_version": "2.2.6",
+    "cuda": true,
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "repo_commit": "c37d10c",
+    "repo_dirty": true,
+    "model_id": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+    "device": "cuda"
+  },
+  "per_manifest": {
+    "data/gripper.jsonl": {
+      "n_items": 300,
+      "raw_depth16": {
+        "mean_mass": 3.1718299319492826e-13,
+        "median_mass": 3.027758978865064e-13,
+        "frac_above_0.05": 0.0,
+        "top_token_counts": {
+          "oriously": 300
+        }
+      },
+      "moment_matched_depth16": {
+        "mean_mass": 0.8726040720939636,
+        "median_mass": 0.8915988206863403,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 300
+        }
+      },
+      "true_depth32": {
+        "mean_mass": 0.9654061794281006,
+        "median_mass": 0.9695179462432861,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " A": 298,
+          " B": 2
+        }
+      },
+      "verdict": "DISTRIBUTION_MISMATCH"
+    },
+    "data/phase.jsonl": {
+      "n_items": 344,
+      "raw_depth16": {
+        "mean_mass": 5.673772649622544e-12,
+        "median_mass": 5.359839308494152e-12,
+        "frac_above_0.05": 0.0,
+        "top_token_counts": {
+          "oriously": 344
+        }
+      },
+      "moment_matched_depth16": {
+        "mean_mass": 0.9987455606460571,
+        "median_mass": 0.9988431930541992,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 344
+        }
+      },
+      "true_depth32": {
+        "mean_mass": 0.9982137680053711,
+        "median_mass": 0.9982497692108154,
+        "frac_above_0.05": 1.0,
+        "top_token_counts": {
+          " B": 344
+        }
+      },
+      "verdict": "DISTRIBUTION_MISMATCH"
+    }
+  }
+}

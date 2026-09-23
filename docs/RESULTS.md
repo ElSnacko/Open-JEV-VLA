@@ -171,6 +171,81 @@ Option (b), a trained probe, has empirical footing behind it for the first
 time in this repo: this experiment is close to a proof of concept for it,
 not just a plausibility argument.
 
+## Follow-up: why does `lm_head` fail specifically? (norm-mismatch diagnostic)
+
+The probe leaves the *mechanism* of the format cliff unexplained. The
+residual stream is additive across layers (`x_16 = x_0 + Δ_1 + ... + Δ_16`),
+so layer 16 lives in roughly the same coordinate system as layer 32, just
+with fewer refinements -- the standard reason logit-lens-style readouts
+usually degrade gradually with depth rather than falling off a cliff. Two
+candidate explanations for why this one didn't:
+
+1. **Distribution mismatch.** The frozen final norm (`LlamaRMSNorm`, verified
+   directly, `experiments/diagnose_norm_mismatch.py`) has a *fixed*, learned
+   per-dimension weight vector, calibrated to layer 32's activation
+   statistics. RMSNorm's division step corrects for gross magnitude
+   differences between depths automatically, but the fixed weight can't
+   correct for *directional* differences -- dimensions that only take on
+   their layer-32 character in layers 17-32 get scaled wrong. This is the
+   textbook motivation for "tuned lens" over naive "logit lens."
+2. **Missing information**, in the specific subspace `lm_head`'s fixed
+   weight matrix reads -- distinct from *any* discriminating subspace, which
+   is all the probe needed.
+
+Tested (1) directly rather than arguing for it: captured the exact hidden
+vector fed to `lm_head` at both depth 16 and depth 32 (644 items pooled
+across both manifests), computed each dimension's mean/std at both depths,
+applied a simple moment-matching affine correction to the depth-16 vectors
+(no training -- first and second moments only), and ran the *real* frozen
+norm + `lm_head` on the corrected vectors.
+
+| condition | gripper mass | gripper top token (n=300) | phase mass | phase top token (n=344) |
+|---|---|---|---|---|
+| raw depth-16 | 0.0000 | `'oriously'`, **every item** | 0.0000 | `'oriously'`, **every item** |
+| moment-matched depth-16 | 0.873 | `' B'`, every item | 0.999 | `' B'`, every item |
+| true depth-32 | 0.965 | `' A'` (298/300) | 0.998 | `' B'`, every item |
+
+Full objects in `results/norm_mismatch_diagnostic.json`. Two things worth
+separating:
+
+**The format collapse at raw depth-16 is total, not partial** -- the exact
+same single token, `'oriously'`, for all 644 items across both manifests.
+Not noisy-but-varied garbage; a complete, item-independent collapse.
+
+**A training-free statistics-only correction recovers format almost
+completely** -- mass jumps from 0.0000 to 0.873-0.999, matching or nearly
+matching the true depth-32 ceiling. This is about as direct a confirmation
+of explanation (1) as this kind of test produces: nothing about the
+*information* changed between the raw and corrected vectors, only its
+scale and offset per dimension, and that alone was enough.
+
+**But the corrected output is still constant per task** -- always `' B'`,
+regardless of which of the 644 different images it was given. That is not a
+new problem introduced by the correction: true depth-32 shows the identical
+pattern (`' A'` for 298/300 gripper items, `' B'` for all 344 phase items),
+which is the content-blindness already reported above. A first/second-moment
+correction has no mechanism to fix that, because it can't reconstruct
+whatever computation layers 17-32 would have contributed -- it only
+rescales what's already in the depth-16 vector.
+
+**So the KILL verdict has two independent causes, not one:**
+
+- The format cliff (depths <= 24) is a fixed-norm/distribution-mismatch
+  artifact, and a cheap, training-free correction resolves it almost
+  completely. This is good news for a probe-style path forward: it says the
+  representation itself doesn't need "fixing," just a different, trained
+  read-out (which is exactly what a linear probe is).
+- Content-blindness is separate, deeper, present even at genuine full depth,
+  and this diagnostic does not touch it. It is not a truncation artifact at
+  all -- whatever causes it, fixing truncation would not fix it.
+
+This was a crude, moment-matching stand-in for a real tuned lens (fit by
+gradient descent against next-token loss, not just two moments) -- a
+negative result here would rule out only the simplest version of
+explanation (1). The result wasn't negative, so that caveat matters less
+than it would have, but a real tuned lens would still be the sharper version
+of this check if the exact mechanism needs pinning down further.
+
 ## What would change this conclusion
 
 This used one 500M backbone (`HuggingFaceTB/SmolVLM2-500M-Video-Instruct`,
