@@ -267,15 +267,24 @@ diagonal correction, both scored on the same held-out items.
 Full object in `results/tuned_lens_check.json` (ridge alpha selected by CV:
 10; train R^2 against depth-32 targets: 0.988).
 
-**Task-dependent, and genuinely informative either way.** On `phase`,
-diagonal already explains it -- the extra rotational freedom buys nothing
-(-0.0004, noise). On `gripper`, the full map does something the diagonal
-correction structurally cannot: it doesn't just recover more mass, it flips
-which constant answer comes out, from `' B'` (matching nothing) to `' A'`
-(exactly matching true depth-32, on all 151 held-out items). A per-axis
-rescaling cannot flip which direction wins; only mixing dimensions can. That
-is real, if modest and task-dependent, evidence for a rotational component
-on top of the (still dominant) diagonal effect.
+**Task-dependent, and the evidence is asymmetric -- worth stating precisely
+rather than as a clean two-way split.** On `gripper`, the full map does
+something the diagonal correction is structurally incapable of: it doesn't
+just recover more mass, it flips which constant answer comes out, from
+`' B'` (matching nothing) to `' A'` (exactly matching true depth-32, on all
+151 of 151 held-out items). A per-axis rescaling cannot flip which direction
+wins; only mixing dimensions can. That's a complete, deterministic result on
+the entire test set -- **a confirmed rotational component for this task,**
+not a marginal trend.
+
+On `phase`, the honest statement is narrower than "no rotational component."
+Diagonal correction already reaches mass 0.999, against a true-depth-32
+ceiling of 0.998 -- there is no headroom left for a rotational fix to
+demonstrate a gain, whether or not one exists. **Absence of evidence, not
+evidence of absence:** `phase` doesn't rule out a rotational component, it
+saturates before one could be detected. Any task where the diagonal
+correction already reaches the depth-32 ceiling will look this way regardless
+of the true geometry underneath it.
 
 **This changes the mechanistic picture, not the content-blindness finding.**
 The rotation-corrected gripper output is exactly as constant across all 151
